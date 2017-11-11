@@ -1,0 +1,1 @@
+docker run --rm -p $PORT:2000 chord app -c $ADDR -u $USER
