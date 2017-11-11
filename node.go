@@ -16,9 +16,6 @@ var Successor *RemoteNode
 var RPCCaller *rpc.Caller
 var RPCCallee *rpc.Callee
 
-// This is how you declare a function pointer in go:
-// var RPCFindSuccessor func(string, uint32) RemoteNode
-// However, we have a custom RemoteFunc type, so we might as well use that.
 var RPCFindSuccessor rpc.RemoteFunc
 var RPCNotify rpc.RemoteFunc
 
@@ -28,23 +25,6 @@ type RemoteNode struct {
 	Key     key.Key
 	IsNil   bool
 }
-
-// func isInExclusive(key uint32, start uint32, end uint32) bool {
-// 	key = key % MaxKey
-// 	if start > MaxKey {
-// 		panic("MaxKey constraint violated by start")
-// 	}
-// 	if end > MaxKey {
-// 		panic("MaxKey constraint violated by end")
-// 	}
-// 	if start < end {
-// 		return key > start && key < end
-// 	}
-// 	if start >= end {
-// 		return key > start || key < end
-// 	}
-// 	return false // What a stupid compiler
-// }
 
 // ClosestPrecedingNode finds the closest preceding node to the key in this node's finger table.
 // This doesn't need any RPC.
@@ -79,10 +59,11 @@ func FindSuccessor(key key.Key) RemoteNode {
 	return rv
 }
 
-func Notify(node RemoteNode) {
+func Notify(node RemoteNode) int {
 	if Predecessor == nil {
 		Predecessor = &node
 	}
+	return 0 // Necessary to interface with RPCCaller
 }
 
 func CreateLocalNode() {
