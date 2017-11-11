@@ -3,11 +3,13 @@ package config
 import (
 	"errors"
 	"flag"
+	"net"
 
 	"github.com/anteater2/chord-node/utils"
 )
 
 var (
+	addr       net.Addr
 	bits       uint64
 	callerPort = 2000
 	calleePort = 2001
@@ -17,6 +19,11 @@ var (
 	numFingers uint64
 	username   string
 )
+
+// Addr returns the local address
+func Addr() net.Addr {
+	return addr
+}
 
 // CallerPort returns the port of the caller
 func CallerPort() int {
@@ -36,6 +43,13 @@ func Creator() bool {
 
 // Init initializes the configs
 func Init() error {
+	addrs, err := utils.LocalAddrs()
+	if err != nil {
+		return err
+	}
+
+	addr = addrs[0] // TODO: better logic for which of addrs to use
+
 	flag.Uint64Var(
 		&bits,
 		"n",
