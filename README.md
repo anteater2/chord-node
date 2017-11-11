@@ -35,4 +35,8 @@ Callees recv on port 2001.
 ## Other problems
 I set the number of fingers to be exactly 3 because I don't know how to get the size of the ring.  I don't think that this should cause problems, but it might break something.
 
+The node program isn't done, but it shouldn't be too bad (especially because we have 5ish days to finish it)
+
+The node program needs to take some command-line options like the ring to join too.
+
 Hopefully, this is enough to work on for the next few days.
