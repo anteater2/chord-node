@@ -18,7 +18,7 @@ func (key Key) Between(start Key, end Key) bool {
 func (key Key) InBounds(start uint64, end uint64) bool {
 	k := uint64(key)
 
-	if start > config.MaxKey || end > config.MaxKey {
+	if start > config.MaxKey() || end > config.MaxKey() {
 		panic("MaxKey constraint violated by start")
 	}
 
@@ -31,8 +31,13 @@ func (key Key) InBounds(start uint64, end uint64) bool {
 	}
 }
 
+// NewKey returns a new key
+func NewKey(value uint64) Key {
+	return Key(value)
+}
+
 // Valid returns true if the key is within the keyspace, false otherwise
 func (key Key) Valid() bool {
 	k := uint64(key)
-	return 0 <= k && k < config.MaxKey // Check for 0 <= not necessary
+	return 0 <= k && k < config.MaxKey() // Check for 0 <= not necessary
 }

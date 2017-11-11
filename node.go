@@ -4,18 +4,13 @@ import (
 	"math/rand"
 
 	"github.com/anteater2/bitmesh/rpc"
-)
-
-const (
-	MaxKey     = 1024
-	NumFingers = 3 //We can't have prior knowledge of the ring size, but I'm not sure that setting this WON'T break anything.
-	CallerPort = 2000
-	CalleePort = 2001
+	"github.com/anteater2/chord-node/config"
+	"github.com/anteater2/chord-node/key"
 )
 
 var Address string
-var Key uint32
-var Fingers [NumFingers]*RemoteNode
+var Key key.Key
+var Fingers = make([]*RemoteNode, config.NumFingers())
 var Predecessor *RemoteNode
 var Successor *RemoteNode
 var RPCCaller *rpc.Caller
@@ -23,63 +18,42 @@ var RPCCallee *rpc.Callee
 
 // This is how you declare a function pointer in go:
 // var RPCFindSuccessor func(string, uint32) RemoteNode
-//However, we have a custom RemoteFunc type, so we might as well use that.
+// However, we have a custom RemoteFunc type, so we might as well use that.
 var RPCFindSuccessor rpc.RemoteFunc
 var RPCNotify rpc.RemoteFunc
 
 // RemoteNode holds information for connecting to a remote node
 type RemoteNode struct {
 	Address string
-	Key     uint32
+	Key     key.Key
 	IsNil   bool
 }
 
-type KeyArg struct {
-	Key uint32
-}
-
-func isInEndInclusive(key uint32, start uint32, end uint32) bool {
-	key = key % MaxKey
-	if start > MaxKey {
-		panic("MaxKey constraint violated by start")
-	}
-	if end > MaxKey {
-		panic("MaxKey constraint violated by end")
-	}
-	if start < end {
-		return key > start && key <= end
-	}
-	if start >= end {
-		return key > start || key <= end
-	}
-	return false // What a stupid compiler
-}
-
-func isInExclusive(key uint32, start uint32, end uint32) bool {
-	key = key % MaxKey
-	if start > MaxKey {
-		panic("MaxKey constraint violated by start")
-	}
-	if end > MaxKey {
-		panic("MaxKey constraint violated by end")
-	}
-	if start < end {
-		return key > start && key < end
-	}
-	if start >= end {
-		return key > start || key < end
-	}
-	return false // What a stupid compiler
-}
+// func isInExclusive(key uint32, start uint32, end uint32) bool {
+// 	key = key % MaxKey
+// 	if start > MaxKey {
+// 		panic("MaxKey constraint violated by start")
+// 	}
+// 	if end > MaxKey {
+// 		panic("MaxKey constraint violated by end")
+// 	}
+// 	if start < end {
+// 		return key > start && key < end
+// 	}
+// 	if start >= end {
+// 		return key > start || key < end
+// 	}
+// 	return false // What a stupid compiler
+// }
 
 // ClosestPrecedingNode finds the closest preceding node to the key in this node's finger table.
 // This doesn't need any RPC.
-func ClosestPrecedingNode(key uint32) RemoteNode {
-	for i := NumFingers - 1; i > -1; i-- {
+func ClosestPrecedingNode(key key.Key) RemoteNode {
+	for i := config.NumFingers() - 1; i >= 0; i-- {
 		if Fingers[i].IsNil {
 			panic("You attempted to find closestPrecedingNode without an initialized finger table!")
 		}
-		if isInExclusive(Fingers[i].Key, Key, key) {
+		if key.Between(Key, key) {
 			return *Fingers[i]
 		}
 	}
@@ -87,16 +61,20 @@ func ClosestPrecedingNode(key uint32) RemoteNode {
 }
 
 // FindSuccessor finds the successor node to the key.  This may require RPC calls.
-func FindSuccessor(keyarg KeyArg) RemoteNode {
-	if isInEndInclusive(keyarg.Key, Key, Successor.Key) {
+func FindSuccessor(key key.Key) RemoteNode {
+	if key.Between(Key, Successor.Key) {
+		// key is between this node and its successor
 		return RemoteNode{Address: Address, Key: Key, IsNil: false}
 	}
-	target := ClosestPrecedingNode(keyarg.Key)
+
+	target := ClosestPrecedingNode(key)
 	// Now, we have to do an RPC on target to find the successor.
-	interf, err := RPCFindSuccessor(target.Address+":2000", keyarg)
+	interf, err := RPCFindSuccessor(target.Address+":2000", uint64(key))
+
 	if err != nil {
-		panic("AHH THE RPC FAILED AAH")
+		panic("RPC failed")
 	}
+
 	rv := interf.(RemoteNode)
 	return rv
 }
@@ -109,9 +87,18 @@ func Notify(node RemoteNode) {
 
 func CreateLocalNode() {
 	// Set the variables of this node.
-	Key := rand.Uint32() % MaxKey // Use a random key for now because addresses are all the same rn
-	RPCCaller, _ := rpc.NewCaller(CallerPort)
-	RPCCallee, _ := rpc.NewCallee(CalleePort)
+	Key = key.Key(rand.Uint64() % config.MaxKey()) // Use a random key for now because addresses are all the same rn
+
+	RPCCaller, err := rpc.NewCaller(config.CallerPort())
+	if err != nil {
+		panic("RPCCaller failed to initialize")
+	}
+
+	RPCCallee, _ := rpc.NewCallee(config.CalleePort())
+	if err != nil {
+		panic("RPCCallee failed to initialize")
+	}
+
 	Address = "127.0.0.1" // TODO: Make the address resolve to the real address of the node.
 	Predecessor = nil
 	Successor = &RemoteNode{
@@ -119,9 +106,11 @@ func CreateLocalNode() {
 		Key:     Key,
 		IsNil:   false,
 	}
+
 	// Define all of the RPC functions.  For more info, look at Yuchen's caller.go and example_test.go
-	RPCFindSuccessor = RPCCaller.Declare(KeyArg{}, RemoteNode{}, 10)
+	RPCFindSuccessor = RPCCaller.Declare(key.NewKey(1), RemoteNode{}, 10)
 	RPCNotify = RPCCaller.Declare(RemoteNode{}, 0, 10)
+
 	// RPCIsAlive = RPCCaller.Declare(nil{}, nil{}, 0) // Don't define this just yet - how does the RPC system react if a node fails to respond?
 	// Hook the RPCCallee into this node's functions
 	RPCCallee.Implement(FindSuccessor) // What happens if two methods have the same arg type signature?
