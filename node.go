@@ -59,6 +59,7 @@ func FindSuccessor(key key.Key) RemoteNode {
 	return rv
 }
 
+// Notify notifies the successor that you are the predecessor
 func Notify(node RemoteNode) int {
 	if Predecessor == nil {
 		Predecessor = &node
@@ -96,12 +97,11 @@ func CreateLocalNode() {
 	// Hook the RPCCallee into this node's functions
 	RPCCallee.Implement(FindSuccessor) // What happens if two methods have the same arg type signature?
 	RPCCallee.Implement(Notify)
-
 }
 
-func main() {
-	CreateLocalNode()
-	go RPCCallee.Start()
-	go RPCCaller.Start()
-	// add the period functions here
-}
+// func main() {
+// 	CreateLocalNode()
+// 	go RPCCallee.Start()
+// 	go RPCCaller.Start()
+// 	// add the period functions here
+// }
