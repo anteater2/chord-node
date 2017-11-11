@@ -3,16 +3,25 @@
 ```node.go``` is the only file that is responsible for everything.
 ## Protocol
 Do RPC using Yuchen's library.  Implement the functions in the Chord paper:
+
 https://pdos.csail.mit.edu/papers/ton:chord/paper-ton.pdf
 
 The idea is that each node should implement callee receivers for:
+
 ```FindSuccessor(key uint32)```
+
 ```Notify(node RemoteNode)```
+
 ```IsAlive() //but this one might be hard```
+
 They should also define caller interfaces for each. The periodic functions:
+
 ```Stabilize```
+
 ```FixFingers```
+
 ```CheckPredecessor // again, this is hard```
+
 can be goroutines with sleeps.
 
 ## IP Resolution
@@ -20,6 +29,7 @@ Each node needs to know its own IP, because the RPC library definitely doesn't.
 
 ## Ports
 Callers send on port 2000.
+
 Callees recv on port 2001.
 
 ## Other problems
