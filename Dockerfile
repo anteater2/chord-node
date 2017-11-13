@@ -1,9 +1,10 @@
 FROM golang:1.9
-EXPOSE 8000 2000 2001
-WORKDIR /go/src/app
+# This specifies the container executable, which in this case is "app".
+# Don't change this - app is created when the Dockerfile does RUN go build
+ENTRYPOINT [ "/app/app" ]
+EXPOSE 2000 2001
+WORKDIR /app
+# Set GOPATH so go build doesn't lose its shit
+ENV GOPATH /app 
 COPY . .
-
-
-
-RUN go-wrapper download
-RUN go-wrapper install
+RUN go build
