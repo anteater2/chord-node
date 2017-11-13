@@ -35,10 +35,11 @@ type RemoteNode struct {
 // This doesn't need any RPC.
 func ClosestPrecedingNode(key key.Key) RemoteNode {
 	for i := config.NumFingers() - 1; i > 0; i-- { // WARNING: GO DOES THIS i>0 CHECK AT THE END OF THE LOOP!
+		//fmt.Printf("Checking finger %d\n", i)
 		if Fingers[i] == nil {
 			panic("You attempted to find ClosestPrecedingNode without an initialized finger table!")
 		}
-		if key.BetweenExclusive(Key, key) {
+		if Fingers[i].Key.BetweenExclusive(Key, key) {
 			return *Fingers[i]
 		}
 	}
@@ -49,9 +50,14 @@ func ClosestPrecedingNode(key key.Key) RemoteNode {
 func FindSuccessor(key key.Key) RemoteNode {
 	if key.BetweenEndInclusive(Key, Successor.Key) {
 		// key is between this node and its successor
-		return RemoteNode{Address: Address, Key: Key}
+		return *Successor
 	}
 	target := ClosestPrecedingNode(key)
+	if target.Address == Address {
+		log.Printf("[DIAGNOSTIC] Infinite loop detected!\n")
+		log.Printf("[DIAGNOSTIC] This is likely because of a bad finger table.\n")
+		panic("This is probably a serious bug.")
+	}
 	// Now, we have to do an RPC on target to find the successor.
 	interf, err := RPCFindSuccessor(target.Address+":"+strconv.Itoa(config.CalleePort()), key)
 	if err != nil {
@@ -65,8 +71,8 @@ func FindSuccessor(key key.Key) RemoteNode {
 
 // Notify notifies the successor that you are the predecessor
 func Notify(node RemoteNode) int {
-	fmt.Printf("Got notify from %s!\n", node.Address)
-	if Predecessor == nil || node.Key.BetweenExclusive(Key, Successor.Key) {
+	if Predecessor == nil || node.Key.BetweenExclusive(Predecessor.Key, Key) {
+		fmt.Printf("Got notify from %s!  New predecessor: %d\n", node.Address, node.Key)
 		Predecessor = &node
 	}
 	return 0 // Necessary to interface with RPCCaller
@@ -76,28 +82,35 @@ func Notify(node RemoteNode) int {
 //This is a goroutine and never terminates.
 func Stabilize() {
 	for true { // This is how while loops work.  Not even joking.
-		if Successor.Address != Address {
-			fmt.Printf("Stabilizing!\n")
+		var remote RemoteNode
+		if Predecessor == nil {
+			fmt.Printf("Null predecessor!  New predecessor: %d\n", Successor.Key)
+			Predecessor = Successor
+		}
+		if Successor.Address == Address {
+			// Avoid making an RPC call to ourselves
+			remote = *Predecessor
+		} else {
 			remoteInterf, err := RPCGetPredecessor(Successor.Address+":"+strconv.Itoa(config.CalleePort()), 0) // 0 is a dummy value so that the RPC interface can work
 			if err != nil {
 				log.Printf("[DIAGNOSTIC] Stabilization call failed!")
+				remote := remoteInterf.(RemoteNode)
+				log.Printf("[DIAGNOSTIC] Returned result: " + strconv.Itoa(int(remote.Key)))
 				log.Print(err)
 				panic("RPCGetPredecessor failed!")
 			}
-			remote := remoteInterf.(RemoteNode)
-			fmt.Printf("Remote key is %d\n", remote.Key)
-			fmt.Printf("My keyspace is (%d, %d)\n", Key, Successor.Key)
-			if remote.Key.BetweenExclusive(Key, Successor.Key) {
-				Successor = &remote
-			}
-
-			RPCNotify(Successor.Address+":"+strconv.Itoa(config.CalleePort()), RemoteNode{
-				Address: Address,
-				Key:     Key,
-			})
-		} else {
-			//fmt.Printf("Skipping stabilization, ring is serviced only by one node.\n")
+			remote = remoteInterf.(RemoteNode)
 		}
+		if remote.Key.BetweenExclusive(Key, Successor.Key) {
+			fmt.Printf("My keyspace is (%d, %d)\n", Key, Successor.Key)
+			fmt.Printf("New successor %d\n", remote.Key)
+			Successor = &remote
+		}
+
+		RPCNotify(Successor.Address+":"+strconv.Itoa(config.CalleePort()), RemoteNode{
+			Address: Address,
+			Key:     Key,
+		})
 		time.Sleep(time.Second * 1)
 	}
 }
@@ -107,13 +120,16 @@ func Stabilize() {
 func FixFingers() {
 	fmt.Printf("Starting to finger nodes...\n") //hehehe
 	currentFingerIndex := uint64(0)
-	for true { //Again, a while loop in the "simple" and "easy to read" language
+	for true {
 		currentFingerIndex++
 		currentFingerIndex %= config.NumFingers()
-		//fmt.Printf("Updating finger %d of %d\n", currentFingerIndex, len(Fingers))
 		offset := uint64(math.Pow(2, float64(currentFingerIndex)))
-		val := (uint64(Key) + offset) % config.NumFingers()
+		val := (uint64(Key) + offset) % config.MaxKey()
 		newFinger := FindSuccessor(key.NewKey(val))
+		//fmt.Printf("Updating finger %d (pointing to key %d) of %d to point to node %s\n", currentFingerIndex, val, len(Fingers), newFinger.Address)
+		if newFinger.Address != Fingers[currentFingerIndex].Address {
+			fmt.Printf("Updating finger %d (pointing to key %d) of %d to point to node %s\n", currentFingerIndex, val, len(Fingers)-1, newFinger.Address)
+		}
 		Fingers[currentFingerIndex] = &newFinger
 		time.Sleep(time.Second * 1)
 	}
@@ -167,20 +183,21 @@ func CreateLocalNode() {
 //Note that the RPC calling interface does not allow argument-free functions, so this takes
 //a worthless int as argument.
 func GetPredecessor(void int) RemoteNode {
-	fmt.Printf("RPC Call to GetPredecessor!\n")
+	//fmt.Printf("RPC Call to GetPredecessor!\n")
 	if Predecessor == nil {
-		fmt.Printf("Returned self node, no predecessor set.\n")
+		//fmt.Printf("Returned self node, no predecessor set.\n")
 		return RemoteNode{
 			Address: Address,
 			Key:     Key,
 		}
 	}
-	fmt.Printf("Returned predecessor.\n")
+	//fmt.Printf("Returned predecessor.\n")
 	return *Predecessor
 }
 
 // Join a ring given a node IP address.
 func Join(ring string) {
+	fmt.Printf("Connecting node to network at %s\n", config.Introducer())
 	ringCallee := ring + ":" + strconv.Itoa(config.CalleePort())
 	ringSuccessorInterf, err := RPCFindSuccessor(ringCallee, Key)
 	if err != nil {
@@ -190,6 +207,7 @@ func Join(ring string) {
 	}
 	ringSuccessor := ringSuccessorInterf.(RemoteNode)
 	Successor = &ringSuccessor
+	fmt.Printf("New successor %d!\n", Successor.Key)
 }
 
 func hash(s string) uint64 {
@@ -208,7 +226,6 @@ func main() {
 	go RPCCallee.Start()
 	go RPCCaller.Start()
 	if !config.Creator() {
-		fmt.Printf("Connecting node to network at %s\n", config.Introducer())
 		Join(config.Introducer())
 	}
 	fmt.Printf("Beginning stabilizer...\n")
