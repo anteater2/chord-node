@@ -1,6 +1,6 @@
 package key
 
-import "github.com/anteater2/chord-node/config"
+import "../config"
 
 // Key is a key in the distributed hash table.
 // IT MUST BE BOUNDED BY MAXKEY
@@ -15,7 +15,9 @@ func (key Key) BetweenExclusive(start Key, end Key) bool {
 	if s > config.MaxKey() || e > config.MaxKey() || k > config.MaxKey() {
 		panic("MaxKey constraint has been violated!")
 	}
-	if s > e { // Interval wraps - if key is lt end or gt start, it is in interval
+	if s == e {
+		return k != s && k != e // Full sweep - all keys are in range, unless it is s or e.
+	} else if s > e { // Interval wraps - if key is lt end or gt start, it is in interval
 		return s < k || k < e
 	} else {
 		return s < k && k < e
@@ -31,10 +33,13 @@ func (key Key) BetweenEndInclusive(start Key, end Key) bool {
 	if s > config.MaxKey() || e > config.MaxKey() || k > config.MaxKey() {
 		panic("MaxKey constraint has been violated!")
 	}
+	if s == e {
+		return true // Full sweep - all keys are in range.
+	}
 	if s > e { // Interval wraps - if key is lt end or gt start, it is in interval
 		return s < k || k <= e
 	} else {
-		return s < k && k <= e
+		return (s < k && k <= e)
 	}
 }
 
