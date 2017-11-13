@@ -165,7 +165,7 @@ func CreateLocalNode() {
 
 //GetPredecessor is a getter for the predecessor, implemented for the sake of RPC calls.
 //Note that the RPC calling interface does not allow argument-free functions, so this takes
-// a worthless int as argument.
+//a worthless int as argument.
 func GetPredecessor(void int) RemoteNode {
 	fmt.Printf("RPC Call to GetPredecessor!\n")
 	if Predecessor == nil {

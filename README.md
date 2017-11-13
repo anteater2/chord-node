@@ -49,6 +49,10 @@ At some point, it might make sense to push this to a docker repo to make it easi
 ## Networking
 Docker defines a bridge0 interface to "bridge" the container VMs with the host OS. This bridge0 interface connects on a virtual bridge network that, by default, is shared amongst all the containers running on a system.  So, if we start two docker containers, they will both run on the same network, with different virtual IP addresses.
 
+The current version of this has the RPC call to GetPredecessor fail (the call is made from node.go:81), which is really weird because the callee always seems to recognize the call and return a value (there are print statements that fire). It's 2AM now, so I'm just committing this and being done.
+
+It should definitely be possible to finish this by Wednesday, though.
+
 ### Core Node
 
 You can start a core node using the Ubuntu version of docker with:
