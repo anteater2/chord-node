@@ -7,4 +7,5 @@ WORKDIR /app
 # Set GOPATH so go build doesn't lose its shit
 ENV GOPATH /app 
 COPY . .
+RUN git clone https://github.com/anteater2/bitmesh.git /app/src/github.com/anteater2/bitmesh
 RUN go build
