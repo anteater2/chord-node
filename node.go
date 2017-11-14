@@ -105,6 +105,7 @@ func Stabilize() {
 			fmt.Printf("My keyspace is (%d, %d)\n", Key, Successor.Key)
 			fmt.Printf("New successor %d\n", remote.Key)
 			Successor = &remote
+			Fingers[0] = &remote
 		}
 
 		RPCNotify(Successor.Address+":"+strconv.Itoa(config.CalleePort()), RemoteNode{
@@ -207,6 +208,7 @@ func Join(ring string) {
 	}
 	ringSuccessor := ringSuccessorInterf.(RemoteNode)
 	Successor = &ringSuccessor
+	Fingers[0] = &ringSuccessor
 	fmt.Printf("New successor %d!\n", Successor.Key)
 }
 
