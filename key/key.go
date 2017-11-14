@@ -1,33 +1,45 @@
 package key
 
-import "github.com/anteater2/chord-node/config"
+import "../config"
 
-// Key is a key in the distributed hash table
+// Key is a key in the distributed hash table.
+// IT MUST BE BOUNDED BY MAXKEY
 type Key uint64
 
-// Between returns true if key is between keys start and end i.e. within
-// (s, e), false otherwise
-func (key Key) Between(start Key, end Key) bool {
+// BetweenExclusive returns if a key is in (start, end)
+// Note that it is possible for the interval to start and end at the same key
+// The interval is just the clockwise sweep between start and end.
+func (key Key) BetweenExclusive(start Key, end Key) bool {
 	s, e := uint64(start), uint64(end)
-	return key.InBounds(s+1, e)
+	k := uint64(key)
+	if s > config.MaxKey() || e > config.MaxKey() || k > config.MaxKey() {
+		panic("MaxKey constraint has been violated!")
+	}
+	if s == e {
+		return k != s && k != e // Full sweep - all keys are in range, unless it is s or e.
+	} else if s > e { // Interval wraps - if key is lt end or gt start, it is in interval
+		return s < k || k < e
+	} else {
+		return s < k && k < e
+	}
 }
 
-// InBounds returns true if key is within [start, end), false otherwise
-// If start > end, then the interval wraps around
-// e.g. [start ... MaxKey - 1, 0, 1 ... end])
-func (key Key) InBounds(start uint64, end uint64) bool {
+// BetweenEndInclusive returns if a key is in (start,end]
+// Note that it is possible for the interval to start and end at the same key
+// The interval is just the clockwise sweep between start and end.
+func (key Key) BetweenEndInclusive(start Key, end Key) bool {
+	s, e := uint64(start), uint64(end)
 	k := uint64(key)
-
-	if start > config.MaxKey() || end > config.MaxKey() {
-		panic("MaxKey constraint violated by start")
+	if s > config.MaxKey() || e > config.MaxKey() || k > config.MaxKey() {
+		panic("MaxKey constraint has been violated!")
 	}
-
-	if start == end {
-		panic("Invalid arguments")
-	} else if start > end { // Interval wraps
-		return start <= k || k <= end
+	if s == e {
+		return true // Full sweep - all keys are in range.
+	}
+	if s > e { // Interval wraps - if key is lt end or gt start, it is in interval
+		return s < k || k <= e
 	} else {
-		return start <= uint64(key) && uint64(key) < end
+		return (s < k && k <= e)
 	}
 }
 

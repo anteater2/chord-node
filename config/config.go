@@ -3,13 +3,14 @@ package config
 import (
 	"errors"
 	"flag"
+	"log"
 	"net"
 
-	"github.com/anteater2/chord-node/utils"
+	"../utils"
 )
 
 var (
-	addr       net.Addr
+	addr       string
 	bits       uint64
 	callerPort = 2000
 	calleePort = 2001
@@ -20,9 +21,18 @@ var (
 	username   string
 )
 
-// Addr returns the local address
-func Addr() net.Addr {
-	return addr
+// GetOutboundIP gets preferred outbound IP of this machine using a filthy hack
+// The connection should not actually require the Google DNS service (the 8.8.8.8),
+// but by creating it we can see what our preferred IP is.
+func GetOutboundIP() string {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	return localAddr.IP.String()
 }
 
 // CallerPort returns the port of the caller
@@ -41,27 +51,31 @@ func Creator() bool {
 	return isCreator
 }
 
+// Addr is this node's preferred outbound IP
+func Addr() string {
+	return addr
+}
+
 // Init initializes the configs
 func Init() error {
-	addrs, err := utils.LocalAddrs()
+	/*addrs, err := utils.LocalAddrs()
 	if err != nil {
 		return err
 	}
-
-	addr = addrs[0] // TODO: better logic for which of addrs to use
-
+	*/
+	addr = GetOutboundIP()
 	flag.Uint64Var(
 		&bits,
 		"n",
 		0,
-		"create a new chord network with a keyspace of 2**numBits",
+		"Create a new chord ring with a keyspace of size 2^numBits",
 	)
 
 	flag.StringVar(
 		&introducer,
 		"c",
 		"",
-		"create a new node and connect to the specified address",
+		"Create a new node and connect to the specified ring address",
 	)
 
 	flag.StringVar(
@@ -77,25 +91,23 @@ func Init() error {
 		return errors.New("Need to either create or connect")
 	}
 
-	if bits != 0 && introducer != "" {
+	/*if bits != 0 && introducer != "" {
 		return errors.New("Cannot create and connect at same time")
-	}
+	}*/
 
-	if username == "" {
+	/*if username == "" {
 		return errors.New("No username")
+	}*/
+	if bits == 0 {
+		return errors.New("You must specify a valid number of bits!")
 	}
 
-	if bits != 0 && introducer == "" {
-		if bits > 63 {
-			return errors.New("Maximum bits: 63") // Not really, but easier for now
-		}
-		isCreator = true
-		maxKey = utils.IntPow(2, bits)
-		numFingers = bits - 1
-		return nil
+	if bits > 63 {
+		return errors.New("Maximum bits: 63") // Not really, but easier for now
 	}
-
-	isCreator = false
+	isCreator = introducer == ""
+	maxKey = utils.IntPow(2, bits)
+	numFingers = bits - 1
 	return nil
 }
 
