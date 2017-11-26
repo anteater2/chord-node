@@ -58,11 +58,6 @@ func Addr() string {
 
 // Init initializes the configs
 func Init() error {
-	/*addrs, err := utils.LocalAddrs()
-	if err != nil {
-		return err
-	}
-	*/
 	addr = GetOutboundIP()
 	flag.Uint64Var(
 		&bits,
@@ -87,23 +82,12 @@ func Init() error {
 
 	flag.Parse()
 
-	if bits == 0 && introducer == "" {
-		return errors.New("Need to either create or connect")
-	}
-
-	/*if bits != 0 && introducer != "" {
-		return errors.New("Cannot create and connect at same time")
-	}*/
-
-	/*if username == "" {
-		return errors.New("No username")
-	}*/
 	if bits == 0 {
-		return errors.New("You must specify a valid number of bits!")
+		return errors.New("you must specify the keyspace size of the chord ring")
 	}
 
 	if bits > 63 {
-		return errors.New("Maximum bits: 63") // Not really, but easier for now
+		return errors.New("invalid keyspace; maximum keyspace size is 63") // Not really, but easier for now
 	}
 	isCreator = introducer == ""
 	maxKey = utils.IntPow(2, bits)
