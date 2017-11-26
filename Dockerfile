@@ -4,8 +4,9 @@ FROM golang:1.9
 ENTRYPOINT [ "/app/app" ]
 EXPOSE 2000 2001
 WORKDIR /app
-# Set GOPATH so go build doesn't lose its shit
+# Set GOPATH so go build doesn't freak out
 ENV GOPATH /app 
+# Fetch RPC lib
+RUN go get "github.com/anteater2/bitmesh/rpc"
 COPY . .
-RUN git clone https://github.com/anteater2/bitmesh.git /app/src/github.com/anteater2/bitmesh
 RUN go build
