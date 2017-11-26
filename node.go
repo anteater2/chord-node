@@ -147,7 +147,6 @@ func CheckPredecessor() {
 	for true {
 		if Predecessor != nil {
 			resp, err := RPCIsAlive(Predecessor.Address+":"+strconv.Itoa(config.CalleePort()), true)
-			log.Print(resp)
 			if err != nil {
 				log.Printf("Predecessor " + Predecessor.Address + " failed a health check!  Attempting to adjust...")
 				log.Print(err)
