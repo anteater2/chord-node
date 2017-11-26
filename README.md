@@ -3,7 +3,9 @@
 ```node.go``` is the only file that is responsible for everything.
 ## Protocol
 RPC uses Yuchen's library.
-All RPC calls (for now) are documented in the MIT Chord Paper:
+All RPC calls (for now) are documented in the MIT Chord Paper.  
+
+THERE ARE TWO OF THESE, AND THEY ARE DIFFERENT!  This is the one used here:
 
 https://pdos.csail.mit.edu/papers/ton:chord/paper-ton.pdf
 
