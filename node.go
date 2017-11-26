@@ -10,7 +10,7 @@ import (
 
 	"./config"
 	"./key"
-	"./src/github.com/anteater2/bitmesh/rpc"
+	"github.com/anteater2/bitmesh/rpc"
 )
 
 var Address string
