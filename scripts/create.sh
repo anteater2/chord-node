@@ -1,1 +1,1 @@
-docker run -p $PORT:8000 --rm chord app -n 20 -u job
+docker build -t bitmesh-node . && docker run -it -p2000:2000 -p2001:2001 bitmesh-node -n 10

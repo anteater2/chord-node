@@ -1,2 +1,1 @@
-docker rmi chord
-docker build -t chord .
+docker build -t bitmesh-node .
