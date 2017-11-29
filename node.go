@@ -50,12 +50,8 @@ type PutKeyRequest struct {
 }
 
 type GetKeyRangeRequest struct {
-	start key.Key
-	end   key.Key
-}
-
-type GetKeyRangeResponse struct {
-	Data []table.HashEntry
+	Start key.Key
+	End   key.Key
 }
 
 // ClosestPrecedingNode finds the closest preceding node to the key in this node's finger table.
@@ -104,7 +100,7 @@ func Notify(node RemoteNode) int {
 		if Predecessor.Address != Address {
 			rvInterf, err := RPCGetKeyRange(Predecessor.Address+":"+strconv.Itoa(config.CalleePort()), GetKeyRangeRequest{Key, Predecessor.Key})
 			if err != nil {
-				panic("GetKeyRangeError!")
+				log.Fatal(err)
 			}
 			rv := rvInterf.([]table.HashEntry)
 			for _, entry := range rv {
@@ -310,8 +306,8 @@ func PutKeyBackup(pkr PutKeyRequest) int {
 	return 1
 }
 
-func GetKeyRange(gkr GetKeyRangeRequest) GetKeyRangeResponse {
-	return GetKeyRangeResponse{InternalTable.GetRange(gkr.start, gkr.end)}
+func GetKeyRange(gkr GetKeyRangeRequest) []table.HashEntry {
+	return InternalTable.GetRange(gkr.Start, gkr.End)
 }
 
 func main() {
