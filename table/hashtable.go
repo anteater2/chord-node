@@ -9,8 +9,8 @@ import (
 )
 
 type HashEntry struct {
-	value []byte
-	key   string
+	Value []byte
+	Key   string
 	next  *HashEntry
 }
 
@@ -25,10 +25,25 @@ func NewTable(maxKeys uint64) *HashTable {
 	return &HashTable{maximum: maxKeys, hashEntries: make([]HashEntry, maxKeys)}
 }
 
+func (self *HashTable) GetRange(start key.Key, end key.Key) []HashEntry {
+	entries := []HashEntry{}
+	for i := start + 1; i <= end+1; i++ {
+		hashEntry := &self.hashEntries[i]
+		if !hashEntry.IsNil() {
+			entries = append(entries, *hashEntry)
+			for hashEntry.next != nil {
+				hashEntry = hashEntry.next
+				entries = append(entries, *hashEntry)
+			}
+		}
+	}
+	return entries
+}
+
 func (self *HashTable) Put(hashKey string, value []byte) {
 	// TO DO: Replace if key is the same
 	position := key.Hash(hashKey, self.maximum)
-	newHashEntry := HashEntry{key: hashKey, value: value}
+	newHashEntry := HashEntry{Key: hashKey, Value: value}
 	hashEntry := &self.hashEntries[position]
 	if hashEntry.IsNil() {
 		self.hashEntries[position] = newHashEntry
@@ -43,8 +58,8 @@ func (self *HashTable) Get(hashKey string) ([]byte, error) {
 	position := key.Hash(hashKey, self.maximum)
 	hashEntry := self.hashEntries[position]
 	for !hashEntry.IsNil() {
-		if hashEntry.key == hashKey {
-			return hashEntry.value, nil
+		if hashEntry.Key == hashKey {
+			return hashEntry.Value, nil
 		}
 		if hashEntry.next == nil {
 			break
@@ -54,5 +69,5 @@ func (self *HashTable) Get(hashKey string) ([]byte, error) {
 	return []byte{0}, errors.New("No such key!")
 }
 func (self HashEntry) IsNil() bool {
-	return len(self.value) == 0 && self.key == ""
+	return self.Value == nil && self.Key == ""
 }
