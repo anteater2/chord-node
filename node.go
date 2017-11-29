@@ -1,7 +1,7 @@
 package main
 
 import (
-	"hash/fnv"
+	"errors"
 	"log"
 	"math"
 	"strconv"
@@ -9,8 +9,11 @@ import (
 
 	"./config"
 	"./key"
+	"./table"
 	"github.com/anteater2/bitmesh/rpc"
 )
+
+var InternalTable *table.HashTable
 
 var Address string
 var Key key.Key
@@ -24,6 +27,11 @@ var RPCFindSuccessor rpc.RemoteFunc
 var RPCNotify rpc.RemoteFunc
 var RPCGetPredecessor rpc.RemoteFunc
 var RPCIsAlive rpc.RemoteFunc
+var RPCPutKey rpc.RemoteFunc
+var RPCGetKey rpc.RemoteFunc
+
+// RPCPutKeyBackup is used to backup a key to the node's predecessor.  This way, if the node fails, the key is duplicated.
+var RPCPutKeyBackup rpc.RemoteFunc
 
 // RemoteNode holds information for connecting to a remote node
 type RemoteNode struct {
@@ -92,12 +100,12 @@ func Stabilize() {
 			remote = *Predecessor
 		} else {
 			remoteInterf, err := RPCGetPredecessor(Successor.Address+":"+strconv.Itoa(config.CalleePort()), 0) // 0 is a dummy value so that the RPC interface can work
-			if err != nil {
+			if err != nil {                                                                                    //TODO: Make the error mean something so we can check it here!
 				log.Printf("[DIAGNOSTIC] Stabilization call failed!")
-				remote := remoteInterf.(RemoteNode)
-				log.Printf("[DIAGNOSTIC] Returned result: " + strconv.Itoa(int(remote.Key)))
+				log.Printf("[DIAGNOSTIC] Error: " + strconv.Itoa(int(remote.Key)))
 				log.Print(err)
-				panic("RPCGetPredecessor failed!")
+				log.Printf("[DIAGNOSTIC] Assuming that the error is the result of a successor node disconnection. Jumping new successor: " + Fingers[1].Address)
+				Successor = Fingers[1]
 			}
 			remote = remoteInterf.(RemoteNode)
 		}
@@ -146,7 +154,7 @@ func IsAlive(void bool) bool {
 func CheckPredecessor() {
 	for true {
 		if Predecessor != nil {
-			resp, err := RPCIsAlive(Predecessor.Address+":"+strconv.Itoa(config.CalleePort()), true)
+			_, err := RPCIsAlive(Predecessor.Address+":"+strconv.Itoa(config.CalleePort()), true)
 			if err != nil {
 				log.Printf("Predecessor " + Predecessor.Address + " failed a health check!  Attempting to adjust...")
 				log.Print(err)
@@ -159,6 +167,9 @@ func CheckPredecessor() {
 
 // CreateLocalNode creates a local node on its own ring.  It can be inserted into another ring later.
 func CreateLocalNode() {
+	// Initialize the internal table
+	InternalTable = table.NewTable(config.MaxKey())
+
 	// Set the variables of this node.
 	var err error
 	RPCCaller, err = rpc.NewCaller(config.CallerPort())
@@ -172,7 +183,7 @@ func CreateLocalNode() {
 
 	Address = config.Addr()
 
-	Key = key.Key(hash(Address) % config.MaxKey())
+	Key = key.Hash(Address, config.MaxKey())
 	log.Printf("Keyspace position %d was derived from IP%s\n", Key, config.Addr())
 
 	Predecessor = nil
@@ -234,10 +245,23 @@ func Join(ring string) {
 	log.Printf("New successor %d!\n", Successor.Key)
 }
 
-func hash(s string) uint64 {
-	h := fnv.New64a()
-	h.Write([]byte(s))
-	return h.Sum64()
+func GetKey(keyString string) ([]byte, error) {
+	if !key.Hash(keyString, config.MaxKey()).BetweenEndInclusive(Key, Successor.Key) {
+		return []byte{0}, errors.New("this node cannot service this key")
+	}
+	rv, err := InternalTable.Get(keyString)
+	if err != nil {
+		return []byte{0}, errors.New("this node services this key, but it does not exist")
+	}
+	return rv, nil
+}
+
+func PutKey(keyString string, data []byte) error {
+	if !key.Hash(keyString, config.MaxKey()).BetweenEndInclusive(Key, Successor.Key) {
+		return errors.New("this node cannot service this key")
+	}
+	InternalTable.Put(keyString, data)
+	return nil
 }
 
 func main() {
