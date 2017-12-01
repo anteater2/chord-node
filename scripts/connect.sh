@@ -1,1 +1,1 @@
-docker run --rm -p $PORT:2000 chord app -c $ADDR -u $USER
+ docker run -it bitmesh-node -n 10 -c 172.17.0.2

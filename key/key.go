@@ -1,6 +1,10 @@
 package key
 
-import "../config"
+import (
+	"hash/fnv"
+
+	"../config"
+)
 
 // Key is a key in the distributed hash table.
 // IT MUST BE BOUNDED BY MAXKEY
@@ -52,4 +56,11 @@ func NewKey(value uint64) Key {
 func (key Key) Valid() bool {
 	k := uint64(key)
 	return 0 <= k && k < config.MaxKey() // Check for 0 <= not necessary
+}
+
+// Hash a string, returning a key bounded by maxKey.
+func Hash(s string, maxKey uint64) Key {
+	h := fnv.New64a()
+	h.Write([]byte(s))
+	return NewKey(h.Sum64() % maxKey)
 }
