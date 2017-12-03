@@ -1,4 +1,4 @@
-package chord
+package main
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 	"./config"
 	"./key"
 	"./table"
-	"github.com/anteater2/bitmesh/rpc"
+	"github.com/anteater2/rpc/rpc"
 )
 
 var InternalTable *table.HashTable
