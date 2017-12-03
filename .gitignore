@@ -1,8 +1,5 @@
 
 dht-node
 
-pkg/linux_amd64/github\.com/anteater2/bitmesh/message\.a
-
-pkg/linux_amd64/github\.com/anteater2/bitmesh/rpc\.a
-
-src/github\.com/anteater2/
+pkg*
+src*
