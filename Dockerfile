@@ -10,3 +10,4 @@ ENV GOPATH /app
 COPY . .
 RUN go get -d ./...
 RUN go build
+RUN ls
