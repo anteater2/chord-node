@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"./config"
-	"./key"
+	"github.com/anteater2/chord-node/structs"
+
 	"./table"
+	"github.com/anteater2/chord-node/key"
 	"github.com/anteater2/rpc/rpc"
 )
 
@@ -17,9 +19,9 @@ var InternalTable *table.HashTable
 
 var Address string
 var Key key.Key
-var Fingers []*RemoteNode
-var Predecessor *RemoteNode
-var Successor *RemoteNode
+var Fingers []*structs.RemoteNode
+var Predecessor *structs.RemoteNode
+var Successor *structs.RemoteNode
 var RPCCaller *rpc.Caller
 var RPCCallee *rpc.Callee
 
@@ -34,30 +36,9 @@ var RPCGetKeyRange rpc.RemoteFunc
 // RPCPutKeyBackup is used to backup a key to the node's predecessor.  This way, if the node fails, the key is duplicated.
 var RPCPutKeyBackup rpc.RemoteFunc
 
-// RemoteNode holds information for connecting to a remote node
-type RemoteNode struct {
-	Address string
-	Key     key.Key
-}
-
-type GetKeyResponse struct {
-	Data  []byte
-	Error bool
-}
-
-type PutKeyRequest struct {
-	KeyString string
-	Data      []byte
-}
-
-type GetKeyRangeRequest struct {
-	Start key.Key
-	End   key.Key
-}
-
 // ClosestPrecedingNode finds the closest preceding node to the key in this node's finger table.
 // This doesn't need any RPC.
-func ClosestPrecedingNode(key key.Key) RemoteNode {
+func ClosestPrecedingNode(key key.Key) structs.RemoteNode {
 	for i := config.NumFingers() - 1; i > 0; i-- { // WARNING: GO DOES THIS i>0 CHECK AT THE END OF THE LOOP!
 		//log.Printf("Checking finger %d\n", i)
 		if Fingers[i] == nil {
@@ -67,11 +48,11 @@ func ClosestPrecedingNode(key key.Key) RemoteNode {
 			return *Fingers[i]
 		}
 	}
-	return RemoteNode{Address: Address, Key: Key}
+	return structs.RemoteNode{Address: Address, Key: Key}
 }
 
 // FindSuccessor finds the successor node to the key.  This may require RPC calls.
-func FindSuccessor(key key.Key) RemoteNode {
+func FindSuccessor(key key.Key) structs.RemoteNode {
 	if key.BetweenEndInclusive(Key, Successor.Key) {
 		// key is between this node and its successor
 		return *Successor
@@ -90,12 +71,12 @@ func FindSuccessor(key key.Key) RemoteNode {
 		log.Print(err)
 		panic("RPCFindSuccessor failed!")
 	}
-	rv := interf.(RemoteNode)
+	rv := interf.(structs.RemoteNode)
 	return rv
 }
 
 // Notify notifies the successor that you are the predecessor
-func Notify(node RemoteNode) int {
+func Notify(node structs.RemoteNode) int {
 	if Predecessor == nil || node.Key.BetweenExclusive(Predecessor.Key, Key) {
 		log.Printf("Got notify from %s!  New predecessor: %d\n", node.Address, node.Key)
 		Predecessor = &node
@@ -117,8 +98,8 @@ func Notify(node RemoteNode) int {
 //Stabilize the Successor and Predecessor fields of this node.
 //This is a goroutine and never terminates.
 func Stabilize() {
-	for true { // This is how while loops work.  Not even joking.
-		var remote RemoteNode
+	for true { // This is how while loops work. Why?
+		var remote structs.RemoteNode
 		if Predecessor == nil {
 			log.Printf("Null predecessor!  New predecessor: %d\n", Successor.Key)
 			Predecessor = Successor
@@ -136,7 +117,7 @@ func Stabilize() {
 				log.Printf("[DIAGNOSTIC] Assuming that the error is the result of a successor node disconnection. Jumping new successor: " + Fingers[1].Address)
 				Successor = Fingers[1]
 			}
-			remote = remoteInterf.(RemoteNode)
+			remote = remoteInterf.(structs.RemoteNode)
 		}
 		if remote.Key.BetweenExclusive(Key, Successor.Key) {
 			log.Printf("New successor %d\n", remote.Key)
@@ -145,7 +126,7 @@ func Stabilize() {
 			log.Printf("My keyspace is (%d, %d)\n", Key, Successor.Key)
 		}
 
-		RPCNotify(joinAddrPort(Successor.Address, config.CalleePort()), RemoteNode{
+		RPCNotify(joinAddrPort(Successor.Address, config.CalleePort()), structs.RemoteNode{
 			Address: Address,
 			Key:     Key,
 		})
@@ -215,12 +196,12 @@ func CreateLocalNode() {
 	log.Printf("Keyspace position %d was derived from IP%s\n", Key, config.Addr())
 
 	Predecessor = nil
-	Successor = &RemoteNode{
+	Successor = &structs.RemoteNode{
 		Address: Address,
 		Key:     Key,
 	}
 	// Initialize the finger table for the solo ring configuration
-	Fingers = make([]*RemoteNode, config.NumFingers())
+	Fingers = make([]*structs.RemoteNode, config.NumFingers())
 	log.Printf("Finger table size %d was derived from the keyspace size\n", config.NumFingers())
 	for i := uint64(0); i < config.NumFingers(); i++ {
 		Fingers[i] = Successor
@@ -229,14 +210,14 @@ func CreateLocalNode() {
 	// Define all of the RPC functions.
 	// For more info, look at Yuchen's caller.go and example_test.go
 	// Go's type "system" is going to make me kill myself.
-	RPCNotify = RPCCaller.Declare(RemoteNode{}, 0, 1*time.Second)
-	RPCFindSuccessor = RPCCaller.Declare(key.NewKey(1), RemoteNode{}, 1*time.Second)
-	RPCGetPredecessor = RPCCaller.Declare(0, RemoteNode{}, 1*time.Second)
+	RPCNotify = RPCCaller.Declare(structs.RemoteNode{}, 0, 1*time.Second)
+	RPCFindSuccessor = RPCCaller.Declare(key.NewKey(1), structs.RemoteNode{}, 1*time.Second)
+	RPCGetPredecessor = RPCCaller.Declare(0, structs.RemoteNode{}, 1*time.Second)
 	RPCIsAlive = RPCCaller.Declare(true, true, 1*time.Second)
-	RPCGetKey = RPCCaller.Declare("", GetKeyResponse{}, 5*time.Second)
-	RPCPutKey = RPCCaller.Declare(PutKeyRequest{}, true, 5*time.Second)
-	RPCPutKeyBackup = RPCCaller.Declare(PutKeyRequest{}, 0, 5*time.Second)
-	RPCGetKeyRange = RPCCaller.Declare(GetKeyRangeRequest{}, []table.HashEntry{}, 100*time.Second)
+	RPCGetKey = RPCCaller.Declare("", structs.GetKeyResponse{}, 5*time.Second)
+	RPCPutKey = RPCCaller.Declare(structs.PutKeyRequest{}, true, 5*time.Second)
+	RPCPutKeyBackup = RPCCaller.Declare(structs.PutKeyRequest{}, 0, 5*time.Second)
+	RPCGetKeyRange = RPCCaller.Declare(structs.GetKeyRangeRequest{}, []table.HashEntry{}, 100*time.Second)
 
 	// Hook the RPCCallee into this node's functions
 	RPCCallee.Implement(FindSuccessor)
@@ -252,11 +233,11 @@ func CreateLocalNode() {
 //GetPredecessor is a getter for the predecessor, implemented for the sake of RPC calls.
 //Note that the RPC calling interface does not allow argument-free functions, so this takes
 //a worthless int as argument.
-func GetPredecessor(void int) RemoteNode {
+func GetPredecessor(void int) structs.RemoteNode {
 	//log.Printf("RPC Call to GetPredecessor!\n")
 	if Predecessor == nil {
 		//log.Printf("Returned self node, no predecessor set.\n")
-		return RemoteNode{
+		return structs.RemoteNode{
 			Address: Address,
 			Key:     Key,
 		}
@@ -275,7 +256,7 @@ func Join(ring string) {
 		log.Print(err)
 		panic("RPCFindSuccessor failed!")
 	}
-	ringSuccessor := ringSuccessorInterf.(RemoteNode)
+	ringSuccessor := ringSuccessorInterf.(structs.RemoteNode)
 	Successor = &ringSuccessor
 	Fingers[0] = &ringSuccessor
 	log.Printf("New successor %d!\n", Successor.Key)
@@ -284,25 +265,26 @@ func Join(ring string) {
 
 // GetKey gets a key from this node.
 // If this node does not service this key or otherwise does not have it, this will return an error via the GetKeyResponse struct.
-func GetKey(keyString string) GetKeyResponse {
+func GetKey(keyString string) structs.GetKeyResponse {
 	log.Printf("GetKey(%s)\n", keyString)
 	if !key.Hash(keyString, config.MaxKey()).BetweenEndInclusive(Predecessor.Key, Key) {
 		log.Printf("GetKey(%s): sorry, it's none of my business\n", keyString)
-		return GetKeyResponse{[]byte{0}, false}
+		return structs.GetKeyResponse{[]byte{0}, false}
 	}
 	rv, err := InternalTable.Get(keyString)
 	if err != nil {
 		log.Printf("GetKey(%s): no such key\n", keyString)
-		return GetKeyResponse{[]byte{0}, false}
+		return structs.GetKeyResponse{[]byte{0}, false}
 	}
 	log.Printf("GetKey(%s): success\n", keyString)
-	return GetKeyResponse{rv, true}
+	return structs.GetKeyResponse{rv, true}
 }
 
 // PutKey puts a key in this node.
 // If this node cannot service this key, it will return false.
 // Otherwise, this returns true.
-func PutKey(pkr PutKeyRequest) bool {
+func PutKey(pkr structs.PutKeyRequest) bool {
+	log.Printf("PutReq for " + pkr.KeyString)
 	keyString := pkr.KeyString
 	data := pkr.Data
 	log.Printf("PutKey(%s)\n", keyString)
@@ -317,14 +299,14 @@ func PutKey(pkr PutKeyRequest) bool {
 
 // PutKeyBackup puts a key in this node, without regard for this node's keyspace.
 // This is used to copy keys for the sake of table fault-tolerance.
-func PutKeyBackup(pkr PutKeyRequest) int {
+func PutKeyBackup(pkr structs.PutKeyRequest) int {
 	keyString := pkr.KeyString
 	data := pkr.Data
 	InternalTable.Put(keyString, data)
 	return 1
 }
 
-func GetKeyRange(gkr GetKeyRangeRequest) []table.HashEntry {
+func GetKeyRange(gkr structs.GetKeyRangeRequest) []table.HashEntry {
 	return InternalTable.GetRange(gkr.Start, gkr.End)
 }
 
