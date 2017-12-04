@@ -29,8 +29,6 @@ var RPCGetPredecessor rpc.RemoteFunc
 var RPCIsAlive rpc.RemoteFunc
 var RPCPutKey rpc.RemoteFunc
 var RPCGetKey rpc.RemoteFunc
-var RPCGet rpc.RemoteFunc
-var RPCPut rpc.RemoteFunc
 var RPCGetKeyRange rpc.RemoteFunc
 
 // RPCPutKeyBackup is used to backup a key to the node's predecessor.  This way, if the node fails, the key is duplicated.

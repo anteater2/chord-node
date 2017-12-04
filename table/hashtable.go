@@ -4,6 +4,7 @@ package table
 
 import (
 	"errors"
+	"log"
 
 	"../key"
 )
@@ -41,6 +42,7 @@ func (self *HashTable) GetRange(start key.Key, end key.Key) []HashEntry {
 }
 
 func (self *HashTable) Put(hashKey string, value []byte) {
+	log.Printf("PutReq for " + hashKey)
 	// TO DO: Replace if key is the same
 	position := key.Hash(hashKey, self.maximum)
 	newHashEntry := HashEntry{Key: hashKey, Value: value}
@@ -55,6 +57,7 @@ func (self *HashTable) Put(hashKey string, value []byte) {
 	}
 }
 func (self *HashTable) Get(hashKey string) ([]byte, error) {
+	log.Printf("GetReq for " + hashKey)
 	position := key.Hash(hashKey, self.maximum)
 	hashEntry := self.hashEntries[position]
 	for !hashEntry.IsNil() {
