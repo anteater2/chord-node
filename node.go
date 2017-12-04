@@ -82,7 +82,7 @@ func Notify(node structs.RemoteNode) int {
 		Predecessor = &node
 		if Predecessor.Address != Address {
 
-			rvInterf, err := RPCGetKeyRange(joinAddrPort(Predecessor.Address, config.CalleePort()), GetKeyRangeRequest{Key, Predecessor.Key})
+			rvInterf, err := RPCGetKeyRange(joinAddrPort(Predecessor.Address, config.CalleePort()), structs.GetKeyRangeRequest{Key, Predecessor.Key})
 			if err != nil {
 				log.Fatal(err)
 			}

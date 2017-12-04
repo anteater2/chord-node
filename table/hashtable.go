@@ -5,7 +5,7 @@ package table
 import (
 	"errors"
 
-	"../key"
+	"github.com/anteater2/chord-node/key"
 )
 
 type HashEntry struct {
