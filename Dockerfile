@@ -7,6 +7,7 @@ WORKDIR /app
 # Set GOPATH so go build doesn't freak out
 ENV GOPATH /app 
 # Fetch RPC lib
-RUN go get "github.com/anteater2/bitmesh/rpc"
 COPY . .
+RUN go get -d ./...
 RUN go build
+RUN ls

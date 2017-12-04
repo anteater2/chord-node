@@ -5,15 +5,13 @@ import (
 	"flag"
 	"log"
 	"net"
-
-	"../utils"
 )
 
 var (
 	addr       string
 	bits       uint64
-	callerPort = 2000
-	calleePort = 2001
+	callerPort uint16 = 2000
+	calleePort uint16 = 2001
 	introducer string
 	isCreator  bool
 	maxKey     uint64
@@ -36,12 +34,12 @@ func GetOutboundIP() string {
 }
 
 // CallerPort returns the port of the caller
-func CallerPort() int {
+func CallerPort() uint16 {
 	return callerPort
 }
 
 // CalleePort returns the port of the callee
-func CalleePort() int {
+func CalleePort() uint16 {
 	return calleePort
 }
 
@@ -90,7 +88,7 @@ func Init() error {
 		return errors.New("invalid keyspace; maximum keyspace size is 63") // Not really, but easier for now
 	}
 	isCreator = introducer == ""
-	maxKey = utils.IntPow(2, bits)
+	maxKey = 1 << bits
 	numFingers = bits - 1
 	return nil
 }
